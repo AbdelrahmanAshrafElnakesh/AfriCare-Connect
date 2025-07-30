@@ -1,0 +1,1857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>African Health App</title>
+    <!-- Favicon to prevent 404 error and add a visual icon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>❤️</text></svg>">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- jsPDF CDN for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        /* Custom scrollbar for the body */
+        body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        body::-webkit-scrollbar-track {
+            background: #e0f2f7; /* Light blue track */
+            border-radius: 10px;
+        }
+
+        body::-webkit-scrollbar-thumb {
+            background: #4a90e2; /* Medical blue thumb */
+            border-radius: 10px;
+            border: 2px solid #e0f2f7; /* Border to make it stand out */
+        }
+
+        body::-webkit-scrollbar-thumb:hover {
+            background: #357ABD; /* Darker blue on hover */
+        }
+
+        /* Inter font for better aesthetics */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Animations for health tip transitions */
+        @keyframes fade-out {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        @keyframes fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .tip-fade-out {
+            animation: fade-out 0.5s ease-out forwards; /* Fades out and stays at opacity 0 */
+        }
+
+        .tip-fade-in {
+            animation: fade-in 0.5s ease-in forwards; /* Fades in and stays at opacity 1 */
+        }
+
+        /* Animations for section transitions */
+        @keyframes section-fade-out {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(10px); }
+        }
+
+        @keyframes section-fade-in {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .content-section {
+            display: none;
+            opacity: 0; /* Start hidden for animation */
+            transform: translateY(10px); /* Initial position for fade-in */
+        }
+
+        .content-section.active {
+            display: block;
+            animation: section-fade-in 0.5s ease-out forwards;
+        }
+
+        .content-section.fading-out {
+            display: block; /* Keep block during fade-out */
+            animation: section-fade-out 0.5s ease-out forwards;
+        }
+
+        /* Custom date input styling */
+        .custom-date-input-container {
+            position: relative;
+        }
+
+        .custom-date-input {
+            cursor: pointer;
+            /* Add padding to the right to make space for the icon */
+            padding-right: 2.5rem !important; 
+        }
+
+        .custom-date-input::-webkit-calendar-picker-indicator {
+            display: none; /* Hide default calendar icon */
+        }
+
+        .custom-date-input::-webkit-inner-spin-button {
+            display: none; /* Hide default spin buttons */
+        }
+
+        .custom-date-input::-webkit-outer-spin-button {
+            display: none; /* Hide default spin buttons */
+        }
+
+        .calendar-icon {
+            position: absolute;
+            right: 0.75rem; /* Position at the end of the container */
+            top: 70%; /* Centered vertically */
+            transform: translateY(-50%); /* Adjust for exact vertical centering */
+            color: #4a90e2; /* Baby blue icon */
+            cursor: pointer; /* Make icon clickable */
+            z-index: 1; /* Ensure icon is above input field */
+        }
+
+        /* Custom Calendar Styles */
+        .custom-calendar {
+            position: absolute;
+            bottom: calc(100% + 5px); /* Position above the input, with 5px spacing */
+            right: 0; /* Align to the right of the input container */
+            transform: translateX(0%); /* No horizontal transform needed if aligned right */
+            background-color: #e0f2f7; /* Baby blue background */
+            border: 1px solid #4a90e2;
+            border-radius: 10px;
+            padding: 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            display: none; /* Hidden by default */
+            width: 300px;
+        }
+
+        .custom-calendar.show {
+            display: block;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            color: #2c5282; /* Darker blue for text */
+            font-weight: bold;
+        }
+
+        .calendar-header button {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: #4a90e2;
+            padding: 0.25rem 0.5rem;
+            border-radius: 5px;
+            transition: background-color 0.2s ease;
+        }
+
+        .calendar-header button:hover {
+            background-color: rgba(74, 144, 226, 0.1);
+        }
+
+        .calendar-header #current-month-year {
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 5px;
+            transition: background-color 0.2s ease;
+        }
+
+        .calendar-header #current-month-year:hover {
+            background-color: rgba(74, 144, 226, 0.1);
+        }
+
+        .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            text-align: center;
+            font-weight: bold;
+            color: #2c5282;
+            margin-bottom: 0.5rem;
+        }
+
+        .calendar-days, .month-selection-grid, .year-selection-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr); /* Default for days */
+            gap: 0.25rem;
+            text-align: center;
+        }
+
+        .month-selection-grid {
+            grid-template-columns: repeat(3, 1fr); /* 3 columns for months */
+        }
+
+        .year-selection-grid {
+            grid-template-columns: repeat(4, 1fr); /* 4 columns for years */
+        }
+
+        .calendar-day, .month-item, .year-item {
+            padding: 0.5rem;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s ease, color 0.2s ease;
+            color: #4a90e2; /* Baby blue for numbers */
+        }
+
+        .calendar-day.empty {
+            visibility: hidden;
+        }
+
+        .calendar-day:hover:not(.empty):not(.selected):not(.today),
+        .month-item:hover:not(.selected),
+        .year-item:hover:not(.selected) {
+            background-color: rgba(74, 144, 226, 0.2);
+        }
+
+        .calendar-day.selected, .month-item.selected, .year-item.selected {
+            background-color: #4a90e2;
+            color: white;
+            font-weight: bold;
+        }
+
+        .calendar-day.today {
+            background-color: #a7d9f7; /* Lighter blue for today */
+            color: #2c5282;
+            font-weight: bold;
+            border: 1px solid #4a90e2;
+        }
+
+        .calendar-footer {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 1rem;
+        }
+
+        .calendar-footer button {
+            background-color: #4a90e2;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: background-color 0.2s ease;
+        }
+
+        .calendar-footer button:hover {
+            background-color: #357ABD;
+        }
+
+        /* Loading spinner for LLM content */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #4a90e2;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Animations for topic detail view */
+        .topic-detail-fade-out {
+            animation: fade-out 0.3s ease-out forwards;
+        }
+
+        .topic-detail-fade-in {
+            animation: fade-in 0.3s ease-in forwards;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <!-- Main Application Container -->
+    <div class="bg-white rounded-2xl shadow-xl flex w-full max-w-6xl h-[90vh]">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white p-6 flex flex-col justify-between rounded-l-2xl shadow-lg">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800 mb-8" data-translate="healthHubTitle">Health Hub</h1>
+                <nav>
+                    <ul>
+                        <li class="mb-4">
+                            <a href="#" class="flex items-center p-3 rounded-lg bg-blue-100 text-blue-700 font-semibold sidebar-link" data-target="dashboard">
+                                <i class="fas fa-th-large mr-3"></i>
+                                <span data-translate="dashboardLink">Dashboard</span>
+                            </a>
+                        </li>
+                        <li class="mb-4">
+                            <a href="#" class="flex items-center p-3 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-blue-700 sidebar-link" data-target="ai-diagnostics">
+                                <i class="fas fa-stethoscope mr-3"></i>
+                                <span data-translate="aiDiagnosticsLink">AI Diagnostics</span>
+                            </a>
+                        </li>
+                        <li class="mb-4">
+                            <a href="#" class="flex items-center p-3 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-blue-700 sidebar-link" data-target="telemedicine">
+                                <i class="fas fa-video mr-3"></i>
+                                <span data-translate="telemedicineLink">Telemedicine</span>
+                            </a>
+                        </li>
+                        <li class="mb-4">
+                            <a href="#" class="flex items-center p-3 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-blue-700 sidebar-link" data-target="health-records">
+                                <i class="fas fa-file-medical mr-3"></i>
+                                <span data-translate="healthRecordsLink">Health Records</span>
+                            </a>
+                        </li>
+                        <li class="mb-4">
+                            <a href="#" class="flex items-center p-3 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-blue-700 sidebar-link" data-target="health-education">
+                                <i class="fas fa-book-open mr-3"></i>
+                                <span data-translate="healthEducationLink">Health Education</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="flex items-center p-3 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-blue-700 sidebar-link" data-target="mental-health">
+                                <i class="fas fa-brain mr-3"></i>
+                                <span data-translate="mentalHealthLink">Mental Health</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+            <div class="text-sm text-gray-500">
+                <p id="user-id">User ID: Loading...</p>
+                <p data-translate="copyrightText">© 2025 African Health App</p>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 p-8 overflow-y-auto">
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="content-section active">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-4 sm:mb-0" data-translate="dashboardTitle">Dashboard</h2>
+                    <!-- Language Selection Dropdown - Moved to top right of dashboard -->
+                    <div class="p-4 bg-blue-50 rounded-lg shadow-inner w-full sm:w-auto">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2" data-translate="selectLanguageTitle">Select Language</h3>
+                        <div class="relative">
+                            <select id="language-select" class="block appearance-none w-full bg-white border border-blue-200 text-gray-700 py-2 px-3 pr-8 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-blue-500 transition duration-300 ease-in-out">
+                                <option value="en">English</option>
+                                <option value="ar">Arabic (العربية)</option>
+                                <option value="fr">French (Français)</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 6.757 7.586 5.343 9z"/></svg>
+                            </div>
+                        </div>
+                        <p id="language-message" class="mt-2 text-xs text-blue-700 hidden"></p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Welcome Card -->
+                    <div class="bg-white p-8 rounded-2xl shadow-lg">
+                        <h3 class="text-2xl font-semibold text-gray-800 mb-4" data-translate="welcomeTitle">Welcome!</h3>
+                        <p class="text-gray-600 mb-4" data-translate="welcomeMessage">Your personalized health journey starts here. Stay updated with your health insights and access various features.</p>
+                        <div class="mt-4 p-4 bg-blue-100 text-blue-800 rounded-lg shadow-inner">
+                            <p class="font-medium italic"><strong class="font-bold" data-translate="healthTipLabel">Personalized Health Tip:</strong> <span id="health-tip">Loading...</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions Card -->
+                    <div class="bg-white p-8 rounded-2xl shadow-lg">
+                        <h3 class="text-2xl font-semibold text-gray-800 mb-4" data-translate="quickActionsTitle">Quick Actions</h3>
+                        <div class="flex flex-col space-y-4">
+                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 quick-action-button" data-target="ai-diagnostics" data-translate="getAIDiagnosisBtn">
+                                Get AI Diagnosis
+                            </button>
+                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 quick-action-button" data-target="telemedicine" data-translate="bookTeleconsultationBtn">
+                                Book Teleconsultation
+                            </button>
+                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 quick-action-button" data-target="health-education" data-translate="exploreHealthEducationBtn">
+                                Explore Health Education
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- AI Diagnostics Section -->
+            <section id="ai-diagnostics" class="content-section">
+                <h2 class="text-3xl font-bold text-gray-800 mb-8" data-translate="aiDiagnosticsTitle">AI Diagnostics</h2>
+                <div class="bg-white p-8 rounded-2xl shadow-lg">
+                    <p class="text-gray-600 mb-4" data-translate="aiDiagnosticsIntro">Enter your symptoms below to get a simulated AI diagnosis and general health advice.</p>
+                    <textarea id="symptom-input" class="shadow appearance-none border border-blue-200 bg-white rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-32 resize-none mb-4" placeholder="e.g., Fever, headache, body aches, fatigue" data-translate-placeholder="symptomInputPlaceholder"></textarea>
+                    <button id="get-diagnosis-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105" data-translate="getDiagnosisBtn">
+                        Get Diagnosis
+                    </button>
+                    <div id="diagnosis-loading" class="flex items-center justify-center py-4 hidden">
+                        <div class="spinner mr-3"></div>
+                        <p class="text-gray-600" data-translate="analyzingSymptoms">Analyzing symptoms...</p>
+                    </div>
+                    <div id="diagnosis-output" class="mt-6 p-4 bg-green-50 text-green-800 rounded-lg border border-green-200 hidden">
+                        <h3 class="font-bold text-lg mb-2" data-translate="aiDiagnosisResultTitle">AI Diagnosis:</h3>
+                        <p id="diagnosis-text"></p>
+                        <button id="consult-doctor-btn" class="mt-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105" data-translate="consultDoctorBtn">
+                            Consult a Doctor via Telemedicine
+                        </button>
+                    </div>
+                    <div id="diagnosis-error" class="mt-6 p-4 bg-red-50 text-red-800 rounded-lg border border-red-200 hidden">
+                        <h3 class="font-bold text-lg mb-2" data-translate="errorTitle">Error:</h3>
+                        <p id="error-text"></p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Telemedicine Section -->
+            <section id="telemedicine" class="content-section">
+                <h2 class="text-3xl font-bold text-gray-800 mb-8" data-translate="telemedicineTitle">Telemedicine</h2>
+                <div class="bg-white p-8 rounded-2xl shadow-lg">
+                    <p class="text-gray-600 mb-4" data-translate="telemedicineIntro1">Connect with healthcare professionals remotely.</p>
+                    <p class="text-gray-500 mb-6" data-translate="telemedicineIntro2">Schedule your virtual consultations here.</p>
+
+                    <form id="booking-form" class="space-y-4">
+                        <div>
+                            <label for="doctor-type-select" class="block text-gray-700 text-sm font-bold mb-2" data-translate="selectDoctorSpecializationLabel">Select Doctor Specialization:</label>
+                            <select id="doctor-type-select" class="shadow appearance-none border border-blue-200 bg-blue-50 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                                <option value="" data-translate="selectSpecializationDefault">-- Please select a specialization --</option>
+                                <option value="General Physician" data-translate="gpOption">General Physician</option>
+                                <option value="Pediatrician" data-translate="pediatricianOption">Pediatrician</option>
+                                <option value="Dermatologist" data-translate="dermatologistOption">Dermatologist</option>
+                                <option value="Cardiologist" data-translate="cardiologistOption">Cardiologist</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="doctor-select" class="block text-gray-700 text-sm font-bold mb-2" data-translate="selectDoctorLabel">Select Doctor:</label>
+                            <select id="doctor-select" class="shadow appearance-none border border-blue-200 bg-blue-50 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" disabled>
+                                <option value="" data-translate="selectDoctorDefault">-- Select a doctor type first --</option>
+                            </select>
+                        </div>
+                        <div class="custom-date-input-container">
+                            <label for="date-display" class="block text-gray-700 text-sm font-bold mb-2" data-translate="selectDateLabel">Select Date:</label>
+                            <!-- Removed readonly to allow manual input and added placeholder -->
+                            <input type="text" id="date-display" class="custom-date-input shadow appearance-none border border-blue-200 bg-blue-50 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="DD/MM/YYYY" data-translate-placeholder="dateInputPlaceholder">
+                            <i class="fas fa-calendar-alt calendar-icon" id="calendar-icon-btn"></i> <!-- Added ID for easier targeting -->
+                            <div id="custom-calendar" class="custom-calendar">
+                                <div class="calendar-header">
+                                    <button type="button" id="prev-month">&lt;</button>
+                                    <span id="current-month-year"></span>
+                                    <button type="button" id="next-month">&gt;</button>
+                                </div>
+                                <div id="calendar-grid-container">
+                                    <div id="calendar-days" class="calendar-days">
+                                        <!-- Days will be populated by JavaScript -->
+                                    </div>
+                                    <div id="month-selection-grid" class="month-selection-grid hidden">
+                                        <!-- Months will be populated by JavaScript -->
+                                    </div>
+                                    <div id="year-selection-grid" class="year-selection-grid hidden">
+                                        <!-- Years will be populated by JavaScript -->
+                                    </div>
+                                </div>
+                                <div class="calendar-footer">
+                                    <button type="button" id="today-button" data-translate="todayButton">Today</button>
+                                    <button type="button" id="clear-button" data-translate="clearButton">Clear</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="time-select" class="block text-gray-700 text-sm font-bold mb-2" data-translate="selectTimeLabel">Select Time:</label>
+                            <select id="time-select" class="shadow appearance-none border border-blue-200 bg-blue-50 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                                <option value="" data-translate="selectTimeDefault">-- Please select a time --</option>
+                                <option value="09:00 AM">09:00 AM</option>
+                                <option value="10:00 AM">10:00 AM</option>
+                                <option value="11:00 AM">11:00 AM</option>
+                                <option value="02:00 PM">02:00 PM</option>
+                                <option value="03:00 PM">03:00 PM</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105" data-translate="bookConsultationBtn">
+                            Book Consultation
+                        </button>
+                    </form>
+                    <div id="booking-message" class="mt-4 p-3 rounded-lg text-center hidden"></div>
+                </div>
+            </section>
+
+            <!-- Health Records Section -->
+            <section id="health-records" class="content-section">
+                <h2 class="text-3xl font-bold text-gray-800 mb-8" data-translate="healthRecordsTitle">Health Records</h2>
+                <div class="bg-white p-8 rounded-2xl shadow-lg">
+                    <p class="text-gray-600 mb-4" data-translate="healthRecordsIntro1">View and manage your personal health records securely.</p>
+                    <p class="text-gray-500 mb-6" data-translate="healthRecordsIntro2">Access your medical history, test results, and more.</p>
+
+                    <form id="add-record-form" class="space-y-4 mb-8 p-6 bg-blue-50 rounded-lg border border-blue-200">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4" data-translate="addRecordTitle">Add New Health Record</h3>
+                        <div>
+                            <label for="record-title" class="block text-gray-700 text-sm font-bold mb-2" data-translate="recordTitleLabel">Record Title:</label>
+                            <input type="text" id="record-title" class="shadow appearance-none border border-blue-200 bg-white rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="e.g., Blood Test Results, Vaccination Record" data-translate-placeholder="recordTitlePlaceholder">
+                        </div>
+                        <div>
+                            <label for="record-description" class="block text-gray-700 text-sm font-bold mb-2" data-translate="recordDescriptionLabel">Description:</label>
+                            <textarea id="record-description" class="shadow appearance-none border border-blue-200 bg-white rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-24 resize-none" placeholder="Detailed description of the record..." data-translate-placeholder="recordDescriptionPlaceholder"></textarea>
+                        </div>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105" data-translate="addRecordBtn">
+                            Add Record
+                        </button>
+                        <div id="record-message" class="mt-4 p-3 rounded-lg text-center hidden"></div>
+                    </form>
+
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800" data-translate="yourHealthRecordsTitle">Your Health Records</h3>
+                        <button id="download-pdf-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105" data-translate="downloadPdfBtn">
+                            <i class="fas fa-download mr-2"></i> Download PDF
+                        </button>
+                    </div>
+
+                    <div id="health-records-list" class="space-y-4">
+                        <!-- Health records will be dynamically added here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Health Education Section -->
+            <section id="health-education" class="content-section">
+                <h2 class="text-3xl font-bold text-gray-800 mb-8" data-translate="healthEducationTitle">Health Education</h2>
+                <div class="bg-white p-8 rounded-2xl shadow-lg">
+                    <!-- Loading indicator for LLM content -->
+                    <div id="health-education-loading" class="flex items-center justify-center py-8">
+                        <div class="spinner mr-3"></div>
+                        <p class="text-gray-600" data-translate="loadingHealthTopics">Loading health topics...</p>
+                    </div>
+
+                    <!-- Container for the list of topics -->
+                    <div id="health-education-topic-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 hidden">
+                        <!-- Health education topics will be dynamically added here -->
+                    </div>
+
+                    <!-- Container for detailed topic view -->
+                    <div id="health-education-topic-detail" class="hidden">
+                        <button id="back-to-topics-btn" class="mb-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105" data-translate="backToTopicsBtn">
+                            <i class="fas fa-arrow-left mr-2"></i> Back to Topics
+                        </button>
+                        <h3 id="detail-topic-title" class="text-2xl font-semibold text-gray-800 mb-4"></h3>
+                        <div id="detail-topic-content" class="text-gray-600 leading-relaxed"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Mental Health Section -->
+            <section id="mental-health" class="content-section">
+                <h2 class="text-3xl font-bold text-gray-800 mb-8" data-translate="mentalHealthTitle">Mental Health</h2>
+                <div class="bg-white p-8 rounded-2xl shadow-lg">
+                    <p class="text-gray-600 mb-4" data-translate="mentalHealthIntro1">Resources and support for your mental well-being.</p>
+                    <p class="text-gray-500 mb-6" data-translate="mentalHealthIntro2">Find tools for stress management, mindfulness, and more.</p>
+
+                    <div id="mental-health-resources" class="space-y-6">
+                        <!-- Mental health resources will be dynamically added here -->
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Translations object
+        const translations = {
+            en: {
+                healthHubTitle: 'Health Hub',
+                dashboardLink: 'Dashboard',
+                aiDiagnosticsLink: 'AI Diagnostics',
+                telemedicineLink: 'Telemedicine',
+                healthRecordsLink: 'Health Records',
+                healthEducationLink: 'Health Education',
+                mentalHealthLink: 'Mental Health',
+                selectLanguageTitle: 'Select Language',
+                copyrightText: '© 2025 African Health App',
+                dashboardTitle: 'Dashboard',
+                welcomeTitle: 'Welcome!',
+                welcomeMessage: 'Your personalized health journey starts here. Stay updated with your health insights and access various features.',
+                healthTipLabel: 'Personalized Health Tip:',
+                healthTips: [ // Moved healthTips here
+                    'Remember to drink at least 8 glasses of water daily for optimal hydration!',
+                    'Aim for at least 30 minutes of moderate exercise most days of the week.',
+                    'Prioritize 7-9 hours of quality sleep each night for better health.',
+                    'Incorporate a variety of fruits and vegetables into your daily diet.',
+                    'Practice mindfulness or meditation to reduce stress and improve mental well-being.'
+                ],
+                quickActionsTitle: 'Quick Actions',
+                getAIDiagnosisBtn: 'Get AI Diagnosis',
+                bookTeleconsultationBtn: 'Book Teleconsultation',
+                exploreHealthEducationBtn: 'Explore Health Education',
+                aiDiagnosticsTitle: 'AI Diagnostics',
+                aiDiagnosticsIntro: 'Enter your symptoms below to get a simulated AI diagnosis and general health advice.',
+                symptomInputPlaceholder: 'e.g., Fever, headache, body aches, fatigue',
+                getDiagnosisBtn: 'Get Diagnosis',
+                analyzingSymptoms: 'Analyzing symptoms...',
+                aiDiagnosisResultTitle: 'AI Diagnosis:',
+                consultDoctorBtn: 'Consult a Doctor via Telemedicine',
+                errorTitle: 'Error:',
+                failedDiagnosisError: 'Failed to get diagnosis: {errorMessage}. Please try again later.',
+                telemedicineTitle: 'Telemedicine',
+                telemedicineIntro1: 'Connect with healthcare professionals remotely.',
+                telemedicineIntro2: 'Schedule your virtual consultations here.',
+                selectDoctorSpecializationLabel: 'Select Doctor Specialization:',
+                selectSpecializationDefault: '-- Please select a specialization --',
+                gpOption: 'General Physician',
+                pediatricianOption: 'Pediatrician',
+                dermatologistOption: 'Dermatologist',
+                cardiologistOption: 'Cardiologist',
+                selectDoctorLabel: 'Select Doctor:',
+                selectDoctorDefault: '-- Select a doctor type first --',
+                selectDateLabel: 'Select Date:',
+                dateInputPlaceholder: 'DD/MM/YYYY',
+                todayButton: 'Today',
+                clearButton: 'Clear',
+                selectTimeLabel: 'Select Time:',
+                selectTimeDefault: '-- Please select a time --',
+                bookConsultationBtn: 'Book Consultation',
+                bookingFormValidation: 'Please fill in all fields correctly, ensuring the date is in DD/MM/YYYY format.',
+                bookingSuccess: 'Consultation with {doctor} ({doctorType}) booked successfully for {date} at {time}. You will receive a confirmation email shortly.',
+                healthRecordsTitle: 'Health Records',
+                healthRecordsIntro1: 'View and manage your personal health records securely.',
+                healthRecordsIntro2: 'Access your medical history, test results, and more.',
+                addRecordTitle: 'Add New Health Record',
+                recordTitleLabel: 'Record Title:',
+                recordTitlePlaceholder: 'e.g., Blood Test Results, Vaccination Record',
+                recordDescriptionLabel: 'Description:',
+                recordDescriptionPlaceholder: 'Detailed description of the record...',
+                addRecordBtn: 'Add Record',
+                addRecordValidation: 'Please enter both a title and description for the health record.',
+                addRecordSuccess: 'Health record added successfully!',
+                yourHealthRecordsTitle: 'Your Health Records',
+                downloadPdfBtn: 'Download PDF',
+                healthEducationTitle: 'Health Education',
+                loadingHealthTopics: 'Loading health topics...',
+                backToTopicsBtn: 'Back to Topics',
+                mentalHealthTitle: 'Mental Health',
+                mentalHealthIntro1: 'Resources and support for your mental well-being.',
+                mentalHealthIntro2: 'Find tools for stress management, mindfulness, and more.',
+                // Specific AI Diagnosis messages (simplified for translation)
+                feverHeadacheDiagnosis: 'Your symptoms of fever and headache could be indicative of a common viral infection like the flu or a cold. Here\'s some basic first-aid advice:',
+                coughSoreThroatDiagnosis: 'Cough and sore throat are common symptoms of respiratory infections. Here\'s some basic first-aid advice:',
+                stomachPainDiagnosis: 'Stomach pain, nausea, vomiting, or diarrhea can be caused by various factors, including indigestion, food poisoning, or a stomach bug. Here\'s some basic first-aid advice:',
+                rashItchySkinDiagnosis: 'A rash or itchy skin could be due to allergies, skin irritation, or other dermatological conditions. Here\'s some basic first-aid advice:',
+                fatigueBodyAchesDiagnosis: 'Fatigue and body aches often accompany viral illnesses, stress, or general overexertion. Here\'s some basic first-aid advice:',
+                sunburnDiagnosis: 'Your symptoms suggest sunburn, especially after prolonged sun exposure. Here\'s some basic first-aid advice:',
+                generalDiagnosis: 'Your symptoms are general. Here\'s some basic first-aid advice that generally applies to mild discomfort:',
+                diagnosisDisclaimer: 'Remember, this is general first-aid advice and not a substitute for professional medical diagnosis or treatment. For a precise diagnosis and personalized treatment plan, it\'s crucial to consult a healthcare professional. You can easily book a consultation through our Telemedicine section.',
+                // Added detailed first-aid advice translations
+                restAdvice: 'Rest:',
+                restAdviceDetails: 'Get plenty of rest to help your body recover.',
+                hydrationAdvice: 'Hydration:',
+                hydrationAdviceDetails: 'Drink clear fluids like water, broth, or rehydration solutions to prevent dehydration, especially with fever.',
+                painFeverReliefAdvice: 'Pain/Fever Relief:',
+                painFeverReliefAdviceDetails: 'Consider over-the-counter medications like paracetamol (acetaminophen) or ibuprofen to help reduce fever and alleviate headaches/body aches. Always follow dosage instructions.',
+                coolCompressesAdvice: 'Cool Compresses:',
+                coolCompressesAdviceDetails: 'Apply a cool, damp cloth to your forehead or neck to help reduce discomfort from fever.',
+                avoidStrenuousActivityAdvice: 'Avoid Strenuous Activity:',
+                avoidStrenuousActivityAdviceDetails: 'Give your body time to heal.',
+                generatedOn: 'Generated on', // For PDF
+                noRecordsAvailable: 'No health records available.', // For PDF
+                appFooter: 'This document is for informational purposes only and does not constitute medical advice.', // For PDF
+                languageSetTo: 'Language set to' // For language change message
+            },
+            ar: { // Arabic translations
+                healthHubTitle: 'المركز الصحي',
+                dashboardLink: 'لوحة القيادة',
+                aiDiagnosticsLink: 'تشخيصات الذكاء الاصطناعي',
+                telemedicineLink: 'الطب عن بعد',
+                healthRecordsLink: 'السجلات الصحية',
+                healthEducationLink: 'التثقيف الصحي',
+                mentalHealthLink: 'الصحة النفسية',
+                selectLanguageTitle: 'اختر اللغة',
+                copyrightText: '© 2025 تطبيق الصحة الأفريقي',
+                dashboardTitle: 'لوحة القيادة',
+                welcomeTitle: 'مرحباً بك!',
+                welcomeMessage: 'تبدأ رحلتك الصحية المخصصة هنا. ابق على اطلاع دائم بآخر مستجدات صحتك واستفد من الميزات المختلفة.',
+                healthTipLabel: 'نصيحة صحية مخصصة:',
+                healthTips: [ // Moved healthTips here
+                    'تذكر أن تشرب 8 أكواب على الأقل من الماء يوميًا لترطيب مثالي!',
+                    'اهدف إلى ممارسة 30 دقيقة على الأقل من التمارين المعتدلة معظم أيام الأسبوع.',
+                    'امنح الأولوية للحصول على 7-9 ساعات من النوم الجيد كل ليلة لتحسين صحتك.',
+                    'أدخل مجموعة متنوعة من الفواكه والخضروات في نظامك الغذائي اليومي.',
+                    'مارس اليقظة الذهنية أو التأمل لتقليل التوتر وتحسين الصحة النفسية.'
+                ],
+                quickActionsTitle: 'إجراءات سريعة',
+                getAIDiagnosisBtn: 'الحصول على تشخيص بالذكاء الاصطناعي',
+                bookTeleconsultationBtn: 'حجز استشارة عن بعد',
+                exploreHealthEducationBtn: 'استكشاف التثقيف الصحي',
+                aiDiagnosticsTitle: 'تشخيصات الذكاء الاصطناعي',
+                aiDiagnosticsIntro: 'أدخل أعراضك أدناه للحصول على تشخيص محاكي بالذكاء الاصطناعي ونصائح صحية عامة.',
+                symptomInputPlaceholder: 'مثال: حمى، صداع، آلام في الجسم، إرهاق',
+                getDiagnosisBtn: 'الحصول على تشخيص',
+                analyzingSymptoms: 'تحليل الأعراض...',
+                aiDiagnosisResultTitle: 'تشخيص الذكاء الاصطناعي:',
+                consultDoctorBtn: 'استشارة طبيب عبر الطب عن بعد',
+                errorTitle: 'خطأ:',
+                failedDiagnosisError: 'فشل الحصول على التشخيص: {errorMessage}. الرجاء المحاولة مرة أخرى لاحقاً.',
+                telemedicineTitle: 'الطب عن بعد',
+                telemedicineIntro1: 'تواصل مع المتخصصين في الرعاية الصحية عن بعد.',
+                telemedicineIntro2: 'حدد مواعيد استشاراتك الافتراضية هنا.',
+                selectDoctorSpecializationLabel: 'اختر تخصص الطبيب:',
+                selectSpecializationDefault: '-- الرجاء اختيار تخصص --',
+                gpOption: 'طبيب عام',
+                pediatricianOption: 'طبيب أطفال',
+                dermatologistOption: 'طبيب جلدية',
+                cardiologistOption: 'طبيب قلب',
+                selectDoctorLabel: 'اختر الطبيب:',
+                selectDoctorDefault: '-- اختر نوع الطبيب أولاً --',
+                selectDateLabel: 'اختر التاريخ:',
+                dateInputPlaceholder: 'اليوم/الشهر/السنة',
+                todayButton: 'اليوم',
+                clearButton: 'مسح',
+                selectTimeLabel: 'اختر الوقت:',
+                selectTimeDefault: '-- الرجاء اختيار وقت --',
+                bookConsultationBtn: 'حجز استشارة',
+                bookingFormValidation: 'الرجاء ملء جميع الحقول بشكل صحيح، مع التأكد من أن التاريخ بتنسيق اليوم/الشهر/السنة.',
+                bookingSuccess: 'تم حجز الاستشارة مع {doctor} ({doctorType}) بنجاح لتاريخ {date} في {time}. ستتلقى رسالة تأكيد بالبريد الإلكتروني قريباً.',
+                healthRecordsTitle: 'السجلات الصحية',
+                healthRecordsIntro1: 'عرض وإدارة سجلاتك الصحية الشخصية بأمان.',
+                healthRecordsIntro2: 'الوصول إلى تاريخك الطبي، ونتائج الفحوصات، والمزيد.',
+                addRecordTitle: 'إضافة سجل صحي جديد',
+                recordTitleLabel: 'عنوان السجل:',
+                recordTitlePlaceholder: 'مثال: نتائج فحص الدم، سجل التطعيم',
+                recordDescriptionLabel: 'الوصف:',
+                recordDescriptionPlaceholder: 'وصف مفصل للسجل...',
+                addRecordBtn: 'إضافة سجل',
+                addRecordValidation: 'الرجاء إدخال عنوان ووصف للسجل الصحي.',
+                addRecordSuccess: 'تمت إضافة السجل الصحي بنجاح!',
+                yourHealthRecordsTitle: 'سجلاتك الصحية',
+                downloadPdfBtn: 'تنزيل PDF',
+                healthEducationTitle: 'التثقيف الصحي',
+                loadingHealthTopics: 'تحميل المواضيع الصحية...',
+                backToTopicsBtn: 'العودة إلى المواضيع',
+                mentalHealthTitle: 'الصحة النفسية',
+                mentalHealthIntro1: 'موارد ودعم لرفاهيتك النفسية.',
+                mentalHealthIntro2: 'ابحث عن أدوات لإدارة التوتر، واليقظة، والمزيد.',
+                // Specific AI Diagnosis messages (simplified for translation)
+                feverHeadacheDiagnosis: 'قد تشير أعراض الحمى والصداع لديك إلى عدوى فيروسية شائعة مثل الأنفلونزا أو البرد. إليك بعض نصائح الإسعافات الأولية الأساسية:',
+                coughSoreThroatDiagnosis: 'السعال والتهاب الحلق من الأعراض الشائعة لالتهابات الجهاز التنفسي. إليك بعض نصائح الإسعافات الأولية الأساسية:',
+                stomachPainDiagnosis: 'يمكن أن يكون ألم المعدة أو الغثيان أو القيء أو الإسهال ناتجًا عن عوامل مختلفة، بما في ذلك عسر الهضم أو التسمم الغذائي أو فيروس المعدة. إليك بعض نصائح الإسعافات الأولية الأساسية:',
+                rashItchySkinDiagnosis: 'قد يكون الطفح الجلدي أو الحكة ناتجًا عن الحساسية أو تهيج الجلد أو حالات جلدية أخرى. إليك بعض نصائح الإسعافات الأولية الأساسية:',
+                fatigueBodyAchesDiagnosis: 'غالبًا ما يصاحب التعب وآلام الجسم الأمراض الفيروسية أو الإجهاد أو الإفراط في المجهود العام. إليك بعض نصائح الإسعافات الأولية الأساسية:',
+                sunburnDiagnosis: 'تشير أعراضك إلى حروق الشمس، خاصة بعد التعرض لأشعة الشمس لفترة طويلة. إليك بعض نصائح الإسعافات الأولية الأساسية:',
+                generalDiagnosis: 'أعراضك عامة. إليك بعض نصائح الإسعافات الأولية الأساسية التي تنطبق بشكل عام على الانزعاج الخفيف:',
+                diagnosisDisclaimer: 'تذكر، هذه نصيحة إسعافات أولية عامة وليست بديلاً عن التشخيص الطبي الاحترافي أو العلاج. للحصول على تشخيص دقيق وخطة علاج مخصصة، من الضروري استشارة أخصائي رعاية صحية. يمكنك بسهولة حجز استشارة من خلال قسم الطب عن بعد لدينا.',
+                // Added detailed first-aid advice translations
+                restAdvice: 'الراحة:',
+                restAdviceDetails: 'احصل على قسط وافر من الراحة لمساعدة جسمك على التعافي.',
+                hydrationAdvice: 'الترطيب:',
+                hydrationAdviceDetails: 'اشرب سوائل صافية مثل الماء أو المرق أو محاليل الإماهة لمنع الجفاف، خاصة مع الحمى.',
+                painFeverReliefAdvice: 'تخفيف الألم/الحمى:',
+                painFeverReliefAdviceDetails: 'فكر في الأدوية التي لا تستلزم وصفة طبية مثل الباراسيتامول (الأسيتامينوفين) أو الإيبوبروفين للمساعدة في تقليل الحمى وتخفيف الصداع/آلام الجسم. اتبع دائمًا تعليمات الجرعة.',
+                coolCompressesAdvice: 'الكمادات الباردة:',
+                coolCompressesAdviceDetails: 'ضع قطعة قماش باردة ورطبة على جبهتك أو رقبتك للمساعدة في تقليل الانزعاج الناتج عن الحمى.',
+                avoidStrenuousActivityAdvice: 'تجنب النشاط الشاق:',
+                avoidStrenuousActivityAdviceDetails: 'امنح جسمك وقتًا للشفاء.',
+                generatedOn: 'تم الإنشاء في', // For PDF
+                noRecordsAvailable: 'لا توجد سجلات صحية متاحة.', // For PDF
+                appFooter: 'هذه الوثيقة لأغراض إعلامية فقط ولا تشكل نصيحة طبية.', // For PDF
+                languageSetTo: 'تم تعيين اللغة إلى' // For language change message
+            },
+            fr: { // French translations
+                healthHubTitle: 'Centre de Santé',
+                dashboardLink: 'Tableau de bord',
+                aiDiagnosticsLink: 'Diagnostics IA',
+                telemedicineLink: 'Télémédecine',
+                healthRecordsLink: 'Dossiers de Santé',
+                healthEducationLink: 'Éducation à la Santé',
+                mentalHealthLink: 'Santé Mentale',
+                selectLanguageTitle: 'Sélectionner la Langue',
+                copyrightText: '© 2025 Application de Santé Africaine',
+                dashboardTitle: 'Tableau de bord',
+                welcomeTitle: 'Bienvenue !',
+                welcomeMessage: 'Votre parcours de santé personnalisé commence ici. Restez informé de vos données de santé et accédez à diverses fonctionnalités.',
+                healthTipLabel: 'Conseil de Santé Personnalisé :',
+                healthTips: [ // Moved healthTips here
+                    'N\'oubliez pas de boire au moins 8 verres d\'eau par jour pour une hydratation optimale !',
+                    'Visez au moins 30 minutes d\'exercice modéré la plupart des jours de la semaine.',
+                    'Privilégiez 7 à 9 heures de sommeil de qualité chaque nuit pour une meilleure santé.',
+                    'Intégrez une variété de fruits et légumes à votre alimentation quotidienne.',
+                    'Pratiquez la pleine conscience ou la méditation pour réduire le stress et améliorer le bien-être mental.'
+                ],
+                quickActionsTitle: 'Actions Rapides',
+                getAIDiagnosisBtn: 'Obtenir un Diagnostic IA',
+                bookTeleconsultationBtn: 'Réserver une Téléconsultation',
+                exploreHealthEducationBtn: 'Explorer l\'Éducation à la Santé',
+                aiDiagnosticsTitle: 'Diagnostics IA',
+                aiDiagnosticsIntro: 'Entrez vos symptômes ci-dessous pour obtenir un diagnostic IA simulé et des conseils de santé généraux.',
+                symptomInputPlaceholder: 'Ex: Fièvre, maux de tête, courbatures, fatigue',
+                getDiagnosisBtn: 'Obtenir le Diagnostic',
+                analyzingSymptoms: 'Analyse des symptômes...',
+                aiDiagnosisResultTitle: 'Diagnostic IA :',
+                consultDoctorBtn: 'Consulter un Médecin par Télémédecine',
+                errorTitle: 'Erreur :',
+                failedDiagnosisError: 'Échec de l\'obtention du diagnostic : {errorMessage}. Veuillez réessayer plus tard.',
+                telemedicineTitle: 'Télémédecine',
+                telemedicineIntro1: 'Connectez-vous avec des professionnels de la santé à distance.',
+                telemedicineIntro2: 'Planifiez vos consultations virtuelles ici.',
+                selectDoctorSpecializationLabel: 'Sélectionner la Spécialisation du Médecin :',
+                selectSpecializationDefault: '-- Veuillez sélectionner une spécialisation --',
+                gpOption: 'Médecin Généraliste',
+                pediatricianOption: 'Pédiatre',
+                dermatologistOption: 'Dermatologue',
+                cardiologistOption: 'Cardiologue',
+                selectDoctorLabel: 'Sélectionner le Médecin :',
+                selectDoctorDefault: '-- Sélectionnez d\'abord un type de médecin --',
+                selectDateLabel: 'Sélectionner la Date :',
+                dateInputPlaceholder: 'JJ/MM/AAAA',
+                todayButton: 'Aujourd\'hui',
+                clearButton: 'Effacer',
+                selectTimeLabel: 'Sélectionner l\'Heure :',
+                selectTimeDefault: '-- Veuillez sélectionner une heure --',
+                bookConsultationBtn: 'Réserver la Consultation',
+                bookingFormValidation: 'Veuillez remplir tous les champs correctement, en vous assurant que la date est au format JJ/MM/AAAA.',
+                bookingSuccess: 'Consultation avec {doctor} ({doctorType}) réservée avec succès pour le {date} à {time}. Vous recevrez un e-mail de confirmation sous peu.',
+                healthRecordsTitle: 'Dossiers de Santé',
+                healthRecordsIntro1: 'Consultez et gérez vos dossiers de santé personnels en toute sécurité.',
+                healthRecordsIntro2: 'Accédez à votre historique médical, aux résultats des tests, et plus encore.',
+                addRecordTitle: 'Ajouter un Nouveau Dossier de Santé',
+                recordTitleLabel: 'Titre du Dossier :',
+                recordTitlePlaceholder: 'Ex: Résultats d\'analyse sanguine, Carnet de vaccination',
+                recordDescriptionLabel: 'Description :',
+                recordDescriptionPlaceholder: 'Description détaillée du dossier...',
+                addRecordBtn: 'Ajouter le Dossier',
+                addRecordValidation: 'Veuillez entrer un titre et une description pour le dossier de santé.',
+                addRecordSuccess: 'Dossier de santé ajouté avec succès !',
+                yourHealthRecordsTitle: 'Vos Dossiers de Santé',
+                downloadPdfBtn: 'Télécharger le PDF',
+                healthEducationTitle: 'Éducation à la Santé',
+                loadingHealthTopics: 'Chargement des sujets de santé...',
+                backToTopicsBtn: 'Retour aux Sujets',
+                mentalHealthTitle: 'Santé Mentale',
+                mentalHealthIntro1: 'Ressources et soutien pour votre bien-être mental.',
+                mentalHealthIntro2: 'Trouvez des outils pour la gestion du stress, la pleine conscience, et plus encore.',
+                // Specific AI Diagnosis messages (simplified for translation)
+                feverHeadacheDiagnosis: 'Vos symptômes de fièvre et de maux de tête pourraient indiquer une infection virale courante comme la grippe ou un rhume. Voici quelques conseils de premiers secours de base :',
+                coughSoreThroatDiagnosis: 'La toux et le mal de gorge sont des symptômes courants des infections respiratoires. Voici quelques conseils de premiers secours de base :',
+                stomachPainDiagnosis: 'Les douleurs à l\'estomac, les nausées, les vomissements ou la diarrhée peuvent être causés par divers facteurs, y compris l\'indigestion, une intoxication alimentaire ou un virus gastrique. Voici quelques conseils de premiers secours de base :',
+                rashItchySkinDiagnosis: 'Une éruption cutanée ou des démangeaisons peuvent être dues à des allergies, une irritation cutanée ou d\'autres affections dermatologiques. Voici quelques conseils de premiers secours de base :',
+                fatigueBodyAchesDiagnosis: 'La fatigue et les courbatures accompagnent souvent les maladies virales, le stress ou le surmenage général. Voici quelques conseils de premiers secours de base :',
+                sunburnDiagnosis: 'Vos symptômes suggèrent un coup de soleil, surtout après une exposition prolongée au soleil. Voici quelques conseils de premiers secours de base :',
+                generalDiagnosis: 'Vos symptômes sont généraux. Voici quelques conseils de premiers secours de base qui s\'appliquent généralement aux inconforts légers :',
+                diagnosisDisclaimer: 'N\'oubliez pas que ceci est un conseil de premiers secours général et ne remplace pas un diagnostic ou un traitement médical professionnel. Pour un diagnostic précis et un plan de traitement personnalisé, il est crucial de consulter un professionnel de la santé. Vous pouvez facilement prendre rendez-vous via notre section Télémédecine.',
+                // Added detailed first-aid advice translations
+                restAdvice: 'Repos :',
+                restAdviceDetails: 'Reposez-vous suffisamment pour aider votre corps à récupérer.',
+                hydrationAdvice: 'Hydratation :',
+                hydrationAdviceDetails: 'Buvez des liquides clairs comme de l\'eau, du bouillon ou des solutions de réhydratation pour prévenir la déshydratation, surtout en cas de fièvre.',
+                painFeverReliefAdvice: 'Soulagement de la douleur/fièvre :',
+                painFeverReliefAdviceDetails: 'Envisagez des médicaments en vente libre comme le paracétamol (acétaminophène) ou l\'ibuprofène pour aider à réduire la fièvre et à soulager les maux de tête/courbatures. Suivez toujours les instructions de dosage.',
+                coolCompressesAdvice: 'Compresses Froides :',
+                coolCompressesAdviceDetails: 'Appliquez un linge frais et humide sur votre front ou votre cou pour aider à réduire l\'inconfort lié à la fièvre.',
+                avoidStrenuousActivityAdvice: 'Évitez les Activités Intenses :',
+                avoidStrenuousActivityAdviceDetails: 'Laissez à votre corps le temps de guérir.',
+                generatedOn: 'Généré le', // For PDF
+                noRecordsAvailable: 'Aucun dossier de santé disponible.', // For PDF
+                appFooter: 'Ce document est à titre informatif uniquement et ne constitue pas un avis médical.', // For PDF
+                languageSetTo: 'Langue définie sur' // For language change message
+            }
+        };
+
+        // Global variables for health tips
+        // healthTips array is now part of the translations object
+        let currentTipIndex = 0;
+        let healthTipElement; // Declared globally, assigned in DOMContentLoaded
+
+        // Declare languageSelect and languageMessage globally
+        let languageSelect;
+        let languageMessage;
+
+        // Function to update health tip (global scope)
+        function updateHealthTip() {
+            if (!healthTipElement) {
+                healthTipElement = document.getElementById('health-tip');
+                if (!healthTipElement) return; // Exit if element still not found
+            }
+
+            // Get the health tips for the current language
+            const currentHealthTips = translations[languageSelect.value].healthTips;
+            if (!currentHealthTips || currentHealthTips.length === 0) {
+                healthTipElement.textContent = 'No health tips available for this language.';
+                return;
+            }
+
+            // Add fade-out class to the current tip
+            healthTipElement.classList.remove('tip-fade-in'); // Ensure previous fade-in is removed
+            healthTipElement.classList.add('tip-fade-out');
+
+            // Wait for the fade-out animation to complete
+            healthTipElement.addEventListener('animationend', function handler() {
+                // Remove the event listener to prevent multiple triggers
+                healthTipElement.removeEventListener('animationend', handler);
+
+                // Update the text content with the translated tip
+                healthTipElement.textContent = currentHealthTips[currentTipIndex];
+                currentTipIndex = (currentTipIndex + 1) % currentHealthTips.length;
+
+                // Remove fade-out and add fade-in class for the new tip
+                healthTipElement.classList.remove('tip-fade-out');
+                healthTipElement.classList.add('tip-fade-in');
+            }, { once: true }); // Ensure the event listener is removed after first execution
+        }
+
+        function applyLanguage(langCode) {
+            const currentTranslations = translations[langCode];
+            if (!currentTranslations) {
+                console.warn(`No translations found for language code: ${langCode}`);
+                return;
+            }
+
+            // Update elements with data-translate attribute
+            document.querySelectorAll('[data-translate]').forEach(element => {
+                const key = element.dataset.translate;
+                if (currentTranslations[key]) {
+                    element.textContent = currentTranslations[key];
+                }
+            });
+
+            // Update placeholders with data-translate-placeholder attribute
+            document.querySelectorAll('[data-translate-placeholder]').forEach(element => {
+                const key = element.dataset.translatePlaceholder;
+                if (currentTranslations[key]) {
+                    element.placeholder = currentTranslations[key];
+                }
+            });
+
+            // Special handling for dynamic content or messages
+            const healthTipElem = document.getElementById('health-tip');
+            if (healthTipElem) {
+                healthTipElement = healthTipElem; // Ensure global healthTipElement is updated
+                currentTipIndex = 0; // Reset tip index to start from the first tip of the new language
+                updateHealthTip(); // Re-trigger health tip update
+            }
+
+            // Update booking message based on current language
+            const bookingMessage = document.getElementById('booking-message');
+            if (bookingMessage && !bookingMessage.classList.contains('hidden')) {
+                // For simplicity, we just hide it on language change
+                bookingMessage.classList.add('hidden');
+            }
+
+            // Update record message based on current language
+            const recordMessage = document.getElementById('record-message');
+            if (recordMessage && !recordMessage.classList.contains('hidden')) {
+                recordMessage.classList.add('hidden');
+            }
+        }
+
+        // Simulate loading for User ID
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                document.getElementById('user-id').textContent = 'User ID: AFH-789012';
+            }, 1500);
+
+            // Assign languageSelect and languageMessage here
+            languageSelect = document.getElementById('language-select');
+            languageMessage = document.getElementById('language-message');
+
+            // Assign healthTipElement here once the DOM is loaded
+            healthTipElement = document.getElementById('health-tip');
+
+            // Initial display: fade in the first tip immediately
+            if (healthTipElement) {
+                const initialHealthTips = translations[languageSelect.value].healthTips;
+                if (initialHealthTips && initialHealthTips.length > 0) {
+                    healthTipElement.textContent = initialHealthTips[currentTipIndex];
+                    currentTipIndex = (currentTipIndex + 1) % initialHealthTips.length;
+                    healthTipElement.classList.add('tip-fade-in');
+                } else {
+                    healthTipElement.textContent = 'No health tips available.';
+                }
+            }
+
+            // Set interval to trigger the update function for subsequent tips
+            setInterval(updateHealthTip, 5000);
+
+            // --- Section Switching Logic ---
+            const sidebarLinks = document.querySelectorAll('.sidebar-link');
+            const quickActionButtons = document.querySelectorAll('.quick-action-button');
+            const contentSections = document.querySelectorAll('.content-section');
+
+            function switchSection(targetId) {
+                const currentActiveSection = document.querySelector('.content-section.active');
+                const nextActiveSection = document.getElementById(targetId);
+
+                if (currentActiveSection && currentActiveSection !== nextActiveSection) {
+                    currentActiveSection.classList.remove('active');
+                    currentActiveSection.classList.add('fading-out');
+
+                    currentActiveSection.addEventListener('animationend', function handler() {
+                        currentActiveSection.removeEventListener('animationend', handler);
+                        currentActiveSection.classList.remove('fading-out');
+                        currentActiveSection.style.display = 'none';
+
+                        if (nextActiveSection) {
+                            nextActiveSection.style.display = 'block';
+                            nextActiveSection.classList.add('active');
+                        }
+                    }, { once: true });
+                } else if (nextActiveSection && !currentActiveSection) {
+                    nextActiveSection.style.display = 'block';
+                    nextActiveSection.classList.add('active');
+                }
+
+                // Update sidebar link active state
+                sidebarLinks.forEach(item => {
+                    item.classList.remove('bg-blue-100', 'text-blue-700', 'font-semibold');
+                    item.classList.add('text-gray-600', 'hover:bg-gray-100', 'hover:text-blue-700');
+                });
+
+                const correspondingSidebarLink = document.querySelector(`.sidebar-link[data-target="${targetId}"]`);
+                if (correspondingSidebarLink) {
+                    correspondingSidebarLink.classList.add('bg-blue-100', 'text-blue-700', 'font-semibold');
+                    correspondingSidebarLink.classList.remove('text-gray-600', 'hover:bg-gray-100', 'hover:text-blue-700');
+                }
+
+                // If navigating to dashboard, restart the health tip animation
+                if (targetId === 'dashboard') {
+                    currentTipIndex = 0; // Reset index
+                    updateHealthTip(); // Force update to show first tip of current language
+                }
+
+                // If navigating to health-education, fetch topics
+                if (targetId === 'health-education') {
+                    fetchHealthEducationTopics();
+                }
+
+                // If navigating to mental-health, render resources
+                if (targetId === 'mental-health') {
+                    renderMentalHealthResources();
+                }
+            }
+
+            // Attach event listeners to sidebar links
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    switchSection(link.dataset.target);
+                });
+            });
+
+            // Attach event listeners to quick action buttons
+            quickActionButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    switchSection(button.dataset.target);
+                });
+            });
+
+            // --- Telemedicine Booking Logic ---
+            const bookingForm = document.getElementById('booking-form');
+            const doctorTypeSelect = document.getElementById('doctor-type-select'); // New Doctor Type dropdown
+            const doctorSelect = document.getElementById('doctor-select');
+            const dateDisplayInput = document.getElementById('date-display'); // Changed from date-select
+            const timeSelect = document.getElementById('time-select');
+            const bookingMessage = document.getElementById('booking-message');
+
+            // Custom Calendar Elements
+            const customCalendar = document.getElementById('custom-calendar');
+            const currentMonthYearSpan = document.getElementById('current-month-year');
+            const prevMonthBtn = document.getElementById('prev-month');
+            const nextMonthBtn = document.getElementById('next-month');
+            const calendarDaysContainer = document.getElementById('calendar-days');
+            const monthSelectionGrid = document.getElementById('month-selection-grid');
+            const yearSelectionGrid = document.getElementById('year-selection-grid');
+            const todayButton = document.getElementById('today-button');
+            const clearButton = document.getElementById('clear-button');
+            const calendarIconButton = document.getElementById('calendar-icon-btn'); // Get the calendar icon button
+
+            let currentCalendarDate = new Date(); // Tracks the month displayed in the calendar
+            let calendarView = 'days'; // 'days', 'months', 'years'
+
+            // Doctor data categorized by type
+            const doctors = {
+                "General Physician": [
+                    { name: "Dr. Anya Sharma", value: "Dr. Anya Sharma" }
+                ],
+                "Pediatrician": [
+                    { name: "Dr. Ben Carter", value: "Dr. Ben Carter" }
+                ],
+                "Dermatologist": [
+                    { name: "Dr. Chloe Davis", value: "Dr. Chloe Davis" }
+                ],
+                "Cardiologist": [
+                    { name: "Dr. Sarah Green", value: "Dr. Sarah Green" }
+                ]
+            };
+
+            // Function to populate doctors based on selected type
+            doctorTypeSelect.addEventListener('change', () => {
+                const selectedType = doctorTypeSelect.value;
+                doctorSelect.innerHTML = ''; // Clear existing options
+
+                if (selectedType) {
+                    doctorSelect.disabled = false;
+                    const doctorsOfType = doctors[selectedType];
+                    doctorsOfType.forEach(doctor => {
+                        const option = document.createElement('option');
+                        option.value = doctor.value;
+                        option.textContent = doctor.name;
+                        doctorSelect.appendChild(option);
+                    });
+                } else {
+                    doctorSelect.disabled = true;
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = "";
+                    defaultOption.textContent = translations[languageSelect.value].selectDoctorDefault; // Translated default
+                    doctorSelect.appendChild(defaultOption);
+                }
+            });
+
+            // Helper function to format date as DD/MM/YYYY
+            function formatDateToDDMMYYYY(date) {
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+                const year = date.getFullYear();
+                return `${day}/${month}/${year}`;
+            }
+
+            // Helper function to parse DD/MM/YYYY string to Date object
+            function parseDDMMYYYYToDate(dateString) {
+                const parts = dateString.split('/');
+                if (parts.length === 3) {
+                    const day = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10) - 1; // Months are 0-indexed
+                    const year = parseInt(parts[2], 10);
+                    const date = new Date(year, month, day);
+                    // Check for valid date (e.g., prevents "31/02/2024" from becoming "02/03/2024")
+                    if (date.getFullYear() === year && date.getMonth() === month && date.getDate() === day) {
+                        return date;
+                    }
+                }
+                return null; // Invalid date format or invalid date
+            }
+
+            // --- Custom Calendar Functions ---
+            function renderDays() {
+                calendarDaysContainer.classList.remove('hidden');
+                monthSelectionGrid.classList.add('hidden');
+                yearSelectionGrid.classList.add('hidden');
+
+                calendarDaysContainer.innerHTML = ''; // Clear previous days
+                currentMonthYearSpan.textContent = currentCalendarDate.toLocaleString(languageSelect.value, { month: 'long', year: 'numeric' }); // Localized month/year
+
+                const year = currentCalendarDate.getFullYear();
+                const month = currentCalendarDate.getMonth();
+                const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0 for Sunday, 1 for Monday, etc.
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                // Add empty cells for days before the 1st of the month
+                for (let i = 0; i < firstDayOfMonth; i++) {
+                    const emptyDay = document.createElement('div');
+                    emptyDay.classList.add('calendar-day', 'empty');
+                    calendarDaysContainer.appendChild(emptyDay);
+                }
+
+                // Get the currently selected date from the input, parsed to a Date object
+                const selectedDateFromInput = parseDDMMYYYYToDate(dateDisplayInput.value);
+
+                // Add days of the month
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayElement = document.createElement('div');
+                    dayElement.classList.add('calendar-day');
+                    dayElement.textContent = day;
+                    // Store date in YYYY-MM-DD format for internal use, but display DD/MM/YYYY
+                    const fullDate = new Date(year, month, day);
+                    dayElement.dataset.date = formatDateToDDMMYYYY(fullDate);
+
+                    const today = new Date();
+                    if (year === today.getFullYear() && month === today.getMonth() && day === today.getDate()) {
+                        dayElement.classList.add('today');
+                    }
+
+                    // If this day is the currently selected date, add 'selected' class
+                    if (selectedDateFromInput &&
+                        selectedDateFromInput.getFullYear() === year &&
+                        selectedDateFromInput.getMonth() === month &&
+                        selectedDateFromInput.getDate() === day) {
+                        dayElement.classList.add('selected');
+                    }
+
+                    dayElement.addEventListener('click', () => {
+                        const selectedDate = dayElement.dataset.date; // This is already DD/MM/YYYY
+                        dateDisplayInput.value = selectedDate;
+                        customCalendar.classList.remove('show'); // Hide calendar after selection
+
+                        // Remove 'selected' class from previously selected day
+                        const previouslySelected = calendarDaysContainer.querySelector('.calendar-day.selected');
+                        if (previouslySelected) {
+                            previouslySelected.classList.remove('selected');
+                        }
+                        // Add 'selected' class to the newly selected day
+                        dayElement.classList.add('selected');
+                    });
+                    calendarDaysContainer.appendChild(dayElement);
+                }
+            }
+
+            function renderMonths() {
+                calendarDaysContainer.classList.add('hidden');
+                monthSelectionGrid.classList.remove('hidden');
+                yearSelectionGrid.classList.add('hidden');
+
+                monthSelectionGrid.innerHTML = '';
+                currentMonthYearSpan.textContent = currentCalendarDate.getFullYear(); // Show only year in month view
+
+                const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                monthNames.forEach((monthName, index) => {
+                    const monthElement = document.createElement('div');
+                    monthElement.classList.add('month-item');
+                    monthElement.textContent = monthName; // Use English month names for simplicity, or localize here
+                    monthElement.dataset.monthIndex = index;
+
+                    if (currentCalendarDate.getMonth() === index) {
+                        monthElement.classList.add('selected'); // Highlight current month
+                    }
+
+                    monthElement.addEventListener('click', () => {
+                        currentCalendarDate.setMonth(index);
+                        calendarView = 'days';
+                        renderDays();
+                    });
+                    monthSelectionGrid.appendChild(monthElement);
+                });
+            }
+
+            function renderYears() {
+                calendarDaysContainer.classList.add('hidden');
+                monthSelectionGrid.classList.add('hidden');
+                yearSelectionGrid.classList.remove('hidden');
+
+                yearSelectionGrid.innerHTML = '';
+                const startYear = currentCalendarDate.getFullYear() - 6; // Show a range of years
+                const endYear = currentCalendarDate.getFullYear() + 5;
+
+                currentMonthYearSpan.textContent = `${startYear} - ${endYear}`; // Show year range
+
+                for (let year = startYear; year <= endYear; year++) {
+                    const yearElement = document.createElement('div');
+                    yearElement.classList.add('year-item');
+                    yearElement.textContent = year;
+                    yearElement.dataset.year = year;
+
+                    if (currentCalendarDate.getFullYear() === year) {
+                        yearElement.classList.add('selected'); // Highlight current year
+                    }
+
+                    yearElement.addEventListener('click', () => {
+                        currentCalendarDate.setFullYear(year);
+                        calendarView = 'months'; // Go back to month selection after year selection
+                        renderMonths();
+                    });
+                    yearSelectionGrid.appendChild(yearElement);
+                }
+            }
+
+            // Event listeners for calendar navigation
+            prevMonthBtn.addEventListener('click', () => {
+                if (calendarView === 'days') {
+                    currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+                    renderDays();
+                } else if (calendarView === 'months') {
+                    currentCalendarDate.setFullYear(currentCalendarDate.getFullYear() - 1);
+                    renderMonths();
+                } else if (calendarView === 'years') {
+                    currentCalendarDate.setFullYear(currentCalendarDate.getFullYear() - 12); // Navigate year range
+                    renderYears();
+                }
+            });
+
+            nextMonthBtn.addEventListener('click', () => {
+                if (calendarView === 'days') {
+                    currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+                    renderDays();
+                } else if (calendarView === 'months') {
+                    currentCalendarDate.setFullYear(currentCalendarDate.getFullYear() + 1);
+                    renderMonths();
+                } else if (calendarView === 'years') {
+                    currentCalendarDate.setFullYear(currentCalendarDate.getFullYear() + 12); // Navigate year range
+                    renderYears();
+                }
+            });
+
+            // Toggle calendar view (days, months, years)
+            currentMonthYearSpan.addEventListener('click', () => {
+                if (calendarView === 'days') {
+                    calendarView = 'months';
+                    renderMonths();
+                } else if (calendarView === 'months') {
+                    calendarView = 'years';
+                    renderYears();
+                } else if (calendarView === 'years') {
+                    // Optionally, go back to days or do nothing
+                    calendarView = 'days';
+                    renderDays();
+                }
+            });
+
+            // "Today" button functionality
+            todayButton.addEventListener('click', () => {
+                const today = new Date();
+                currentCalendarDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                dateDisplayInput.value = formatDateToDDMMYYYY(today); // Format to DD/MM/YYYY
+                calendarView = 'days';
+                renderDays();
+                customCalendar.classList.remove('show');
+            });
+
+            // "Clear" button functionality
+            clearButton.addEventListener('click', () => {
+                dateDisplayInput.value = '';
+                customCalendar.classList.remove('show');
+            });
+
+            // Show custom calendar only when the calendar icon is clicked
+            calendarIconButton.addEventListener('click', () => {
+                customCalendar.classList.toggle('show'); // Toggle visibility
+                calendarView = 'days'; // Always start with day view when icon is clicked
+                renderDays();
+            });
+
+            // Validate manual input
+            dateDisplayInput.addEventListener('input', () => {
+                const inputValue = dateDisplayInput.value;
+                // Regex for DD/MM/YYYY format
+                const dateRegex = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
+
+                if (inputValue === '') {
+                    // If input is cleared, hide message
+                    bookingMessage.classList.add('hidden');
+                    return;
+                }
+
+                if (!dateRegex.test(inputValue)) {
+                    bookingMessage.classList.remove('bg-green-100', 'text-green-800');
+                    bookingMessage.classList.add('bg-red-100', 'text-red-800');
+                    bookingMessage.textContent = translations[languageSelect.value].bookingFormValidation; // Translated validation
+                    bookingMessage.classList.remove('hidden');
+                    return;
+                }
+
+                // Attempt to parse the date to validate it
+                const parsedDate = parseDDMMYYYYToDate(inputValue);
+                if (!parsedDate) {
+                    bookingMessage.classList.remove('bg-green-100', 'text-green-800');
+                    bookingMessage.classList.add('bg-red-100', 'text-red-800');
+                    bookingMessage.textContent = translations[languageSelect.value].bookingFormValidation; // Translated validation
+                    bookingMessage.classList.remove('hidden');
+                } else {
+                    bookingMessage.classList.add('hidden'); // Hide message if valid
+                }
+            });
+
+            // Hide calendar when clicking outside
+            document.addEventListener('click', (e) => {
+                // Check if the click target is outside the calendar, the date input, and the calendar icon
+                if (!customCalendar.contains(e.target) && e.target !== dateDisplayInput && e.target !== calendarIconButton) {
+                    customCalendar.classList.remove('show');
+                }
+            });
+
+
+            bookingForm.addEventListener('submit', (e) => {
+                e.preventDefault(); // Prevent default form submission
+
+                const doctorType = doctorTypeSelect.value; // Get selected doctor type
+                const doctor = doctorSelect.value;
+                const date = dateDisplayInput.value; // Use dateDisplayInput.value
+                const time = timeSelect.value;
+
+                // Validate the date format before submission
+                const dateRegex = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
+                const parsedDate = parseDDMMYYYYToDate(date);
+
+                if (!doctorType || !doctor || !date || !time || !dateRegex.test(date) || !parsedDate) {
+                    bookingMessage.classList.remove('bg-green-100', 'text-green-800');
+                    bookingMessage.classList.add('bg-red-100', 'text-red-800');
+                    bookingMessage.textContent = translations[languageSelect.value].bookingFormValidation; // Translated validation
+                    bookingMessage.classList.remove('hidden');
+                    return;
+                }
+
+                bookingMessage.classList.remove('bg-red-100', 'text-red-800');
+                bookingMessage.classList.add('bg-green-100', 'text-green-800');
+                // Use template literals for dynamic parts of the message
+                bookingMessage.textContent = translations[languageSelect.value].bookingSuccess
+                    .replace('{doctor}', doctor)
+                    .replace('{doctorType}', doctorType)
+                    .replace('{date}', date)
+                    .replace('{time}', time);
+                bookingMessage.classList.remove('hidden');
+
+                // Optionally, reset the form
+                bookingForm.reset();
+                // Reset doctor select to disabled and default text after form reset
+                doctorSelect.innerHTML = `<option value="">${translations[languageSelect.value].selectDoctorDefault}</option>`; // Translated default
+                doctorSelect.disabled = true;
+                dateDisplayInput.value = ''; // Clear date display input
+                customCalendar.classList.remove('show'); // Hide calendar
+            });
+
+            // --- Health Records Logic ---
+            const addRecordForm = document.getElementById('add-record-form');
+            const recordTitleInput = document.getElementById('record-title');
+            const recordDescriptionInput = document.getElementById('record-description');
+            const healthRecordsList = document.getElementById('health-records-list');
+            const recordMessage = document.getElementById('record-message');
+            const downloadPdfBtn = document.getElementById('download-pdf-btn'); // Get the download PDF button
+
+            addRecordForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                const title = recordTitleInput.value.trim();
+                const description = recordDescriptionInput.value.trim();
+
+                if (!title || !description) {
+                    recordMessage.classList.remove('bg-green-100', 'text-green-800');
+                    recordMessage.classList.add('bg-red-100', 'text-red-800');
+                    recordMessage.textContent = translations[languageSelect.value].addRecordValidation; // Translated validation
+                    recordMessage.classList.remove('hidden');
+                    return;
+                }
+
+                const newRecord = document.createElement('div');
+                newRecord.classList.add('bg-white', 'p-4', 'rounded-lg', 'shadow-md', 'border', 'border-gray-200', 'health-record-item'); // Added class for easier selection
+                const currentDate = formatDateToDDMMYYYY(new Date()); // Use the helper function for current date
+
+                newRecord.innerHTML = `
+                    <h4 class="font-bold text-gray-800">${title}</h4>
+                    <p class="text-gray-600 text-sm">${description}</p>
+                    <p class="text-gray-500 text-xs mt-2" data-translate-prefix="addedOn">Added on: ${currentDate}</p>
+                `;
+                healthRecordsList.prepend(newRecord); // Add new record to the top of the list
+
+                recordMessage.classList.remove('bg-red-100', 'text-red-800');
+                recordMessage.classList.add('bg-green-100', 'text-green-800');
+                recordMessage.textContent = translations[languageSelect.value].addRecordSuccess; // Translated success
+                recordMessage.classList.remove('hidden'); // Fixed typo: .remove('hidden') to .classList.remove('hidden')
+
+                recordTitleInput.value = '';
+                recordDescriptionInput.value = '';
+
+                // Hide message after a few seconds
+                setTimeout(() => {
+                    recordMessage.classList.add('hidden');
+                }, 3000);
+            });
+
+            // PDF Download Functionality
+            downloadPdfBtn.addEventListener('click', () => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                let yPos = 20; // Starting Y position for text
+
+                // Header
+                doc.setFontSize(22);
+                doc.setTextColor(44, 82, 130); // Darker blue
+                doc.text("African Health Records", 105, yPos, { align: "center" });
+                yPos += 10;
+
+                doc.setFontSize(10);
+                doc.setTextColor(100, 100, 100); // Gray
+                doc.text(`${translations[languageSelect.value].generatedOn}: ${formatDateToDDMMYYYY(new Date())}`, 105, yPos, { align: "center" }); // Translated
+                yPos += 20;
+
+                doc.setDrawColor(74, 144, 226); // Medical blue line
+                doc.setLineWidth(0.5);
+                doc.line(20, yPos, 190, yPos); // Line across the page
+                yPos += 10;
+
+                // User ID
+                const userIdText = document.getElementById('user-id').textContent;
+                doc.setFontSize(12);
+                doc.setTextColor(44, 82, 130);
+                doc.text(userIdText, 20, yPos);
+                yPos += 10;
+
+                doc.setFontSize(16);
+                doc.setTextColor(50, 50, 50); // Dark gray for section title
+                doc.text(translations[languageSelect.value].yourHealthRecordsTitle, 20, yPos); // Translated
+                yPos += 10;
+
+                const healthRecordItems = document.querySelectorAll('.health-record-item');
+
+                if (healthRecordItems.length === 0) {
+                    doc.setFontSize(12);
+                    doc.setTextColor(150, 150, 150);
+                    doc.text(translations[languageSelect.value].noRecordsAvailable, 20, yPos); // Translated
+                    yPos += 10;
+                } else {
+                    healthRecordItems.forEach((record, index) => {
+                        const title = record.querySelector('h4').textContent;
+                        const description = record.querySelector('p:nth-of-type(1)').textContent;
+                        // Corrected: data-translate-prefix="addedOn" means the prefix is translated, not the whole string.
+                        // We need to extract the date part only if it's dynamic.
+                        // Assuming the date is always at the end after "Added on: "
+                        const dateAddedFullText = record.querySelector('p[data-translate-prefix="addedOn"]').textContent;
+                        const dateAdded = dateAddedFullText.split(': ')[1]; // Extract just the date part
+
+                        // Check if new page is needed
+                        if (yPos + 40 > doc.internal.pageSize.height - 20) { // 40 is approximate height of one record item + spacing
+                            doc.addPage();
+                            yPos = 20; // Reset yPos for new page
+                            doc.setFontSize(16);
+                            doc.setTextColor(50, 50, 50);
+                            // Added 'continued' translation key
+                            doc.text(`${translations[languageSelect.value].yourHealthRecordsTitle} (${translations[languageSelect.value].continued || 'continued'}):`, 20, yPos); // Translated
+                            yPos += 10;
+                        }
+
+                        doc.setFontSize(14);
+                        doc.setTextColor(0, 0, 0); // Black for title
+                        doc.text(`${index + 1}. ${title}`, 20, yPos);
+                        yPos += 7;
+
+                        doc.setFontSize(10);
+                        doc.setTextColor(80, 80, 80); // Dark gray for description
+                        const splitDescription = doc.splitTextToSize(description, 170); // Max width 170mm
+                        doc.text(splitDescription, 25, yPos);
+                        yPos += (splitDescription.length * 5) + 2; // Adjust yPos based on lines of description
+
+                        doc.setFontSize(8);
+                        doc.setTextColor(120, 120, 120); // Lighter gray for date
+                        doc.text(`${translations[languageSelect.value].addedOn || 'Added on'}: ${dateAdded}`, 25, yPos); // Re-add translated prefix
+                        yPos += 10; // Spacing after each record
+                    });
+                }
+
+                // Footer
+                doc.setDrawColor(74, 144, 226); // Medical blue line
+                doc.setLineWidth(0.5);
+                doc.line(20, doc.internal.pageSize.height - 20, 190, doc.internal.pageSize.height - 20);
+                doc.setFontSize(8);
+                doc.setTextColor(100, 100, 100);
+                doc.text(translations[languageSelect.value].appFooter, 105, doc.internal.pageSize.height - 10, { align: "center" }); // Translated
+                doc.save('African_Health_Records.pdf');
+            });
+
+            // --- Health Education Logic ---
+            const healthEducationLoading = document.getElementById('health-education-loading');
+            const healthEducationTopicList = document.getElementById('health-education-topic-list');
+            const healthEducationTopicDetail = document.getElementById('health-education-topic-detail');
+            const backToTopicsBtn = document.getElementById('back-to-topics-btn');
+            const detailTopicTitle = document.getElementById('detail-topic-title');
+            const detailTopicContent = document.getElementById('detail-topic-content'); // Changed from detailTopicDescription
+
+            // Static data for health education topics (descriptions are long, so not translating here for brevity, but would be in a real app)
+            const healthEducationTopicsData = [
+                {
+                    title: "Malaria Prevention in African Communities",
+                    description: "Malaria remains a significant health challenge in many parts of Africa. This topic covers effective prevention strategies, including the proper use of insecticide-treated mosquito nets, indoor residual spraying, and preventive medication. Understanding the mosquito life cycle and community-based control efforts are key to reducing transmission.",
+                    videoUrl: "https://www.youtube.com/embed/tNeFVcrKZ3E" 
+                },
+                {
+                    title: "First Aid for Snake Bites in Rural Areas",
+                    description: "Snake bites are a medical emergency, especially in rural African settings where access to immediate medical care might be limited. Learn crucial first-aid steps, such as keeping the victim calm, immobilizing the bitten limb, and avoiding traditional remedies. Emphasizes rapid transport to a healthcare facility for antivenom.",
+                    videoUrl: "https://www.youtube.com/embed/fnE6_sDv9z0"
+                },
+                {
+                    title: "Water Purification Techniques for Safe Drinking",
+                    description: "Access to clean and safe drinking water is vital for preventing waterborne diseases common in some African regions. This section explores various water purification methods, including boiling, filtration, and chemical disinfection. Learn practical, low-cost techniques to ensure your drinking water is safe for consumption.",
+                    videoUrl: "https://www.youtube.com/embed/SMf2wzFz3ac" 
+                },
+                {
+                    title: "Managing Diabetes in African Diets",
+                    description: "Diabetes is a growing concern globally, including in Africa. This topic provides guidance on managing diabetes through diet, focusing on local African food staples. It covers carbohydrate counting, healthy food choices, and the importance of regular physical activity tailored to African culinary traditions.",
+                    videoUrl: "https://www.youtube.com/embed/sZEVHjRgTvQ" 
+                },
+                {
+                    title: "Basic Wound Care and Infection Prevention",
+                    description: "Proper wound care is essential to prevent infections, which can be particularly dangerous in environments with limited medical resources. Learn how to clean and dress minor cuts, scrapes, and burns, recognize signs of infection, and when to seek professional medical attention. Simple, effective techniques for home use.",
+                    videoUrl: null 
+                },
+                {
+                    title: "Understanding and Preventing HIV/AIDS in Africa",
+                    description: "HIV/AIDS continues to impact communities across Africa. This education module provides up-to-date information on transmission, prevention methods (including safe practices and PrEP), and the importance of testing and early treatment. It aims to reduce stigma and promote informed choices for sexual health.",
+                    videoUrl: "https://www.youtube.com/embed/OQEj33wqklw" 
+                },
+                {
+                    title: "Childhood Immunizations: A Lifesaving Shield",
+                    description: "Vaccinations are one of the most effective public health interventions. This topic highlights the importance of routine childhood immunizations in Africa, covering common preventable diseases like polio, measles, and tetanus. It explains vaccine schedules and addresses common myths and misconceptions.",
+                    videoUrl: null 
+                },
+                {
+                    title: "Nutritional Support for Expectant Mothers",
+                    description: "Proper nutrition during pregnancy is crucial for the health of both mother and child. This section offers guidance on essential nutrients, healthy eating habits, and managing common pregnancy discomforts. It emphasizes the use of locally available, nutritious foods to support a healthy pregnancy in African contexts.",
+                    videoUrl: "https://www.youtube.com/embed/e4L3bI1fyzw" 
+                }
+            ];
+
+            async function fetchHealthEducationTopics() {
+                healthEducationLoading.classList.remove('hidden');
+                healthEducationTopicList.classList.add('hidden');
+                healthEducationTopicDetail.classList.add('hidden');
+
+                // Simulate API call delay
+                await new Promise(resolve => setTimeout(resolve, 1000)); 
+                
+                // Directly use the static data
+                renderTopicList(healthEducationTopicsData);
+                healthEducationLoading.classList.add('hidden');
+                healthEducationTopicList.classList.remove('hidden');
+            }
+
+            function renderTopicList(topics) {
+                healthEducationTopicList.innerHTML = ''; // Clear previous topics
+                topics.forEach(topic => {
+                    const topicCard = document.createElement('div');
+                    topicCard.classList.add('bg-blue-50', 'p-6', 'rounded-lg', 'shadow-md', 'cursor-pointer', 'hover:bg-blue-100', 'transition', 'duration-200', 'ease-in-out', 'transform', 'hover:scale-105');
+                    
+                    let videoIcon = '';
+                    if (topic.videoUrl) {
+                        videoIcon = '<i class="fas fa-video text-blue-500 ml-2"></i>'; // Video icon
+                    }
+
+                    topicCard.innerHTML = `
+                        <h4 class="font-bold text-lg text-blue-800 mb-2 flex items-center">${topic.title}${videoIcon}</h4>
+                        <p class="text-gray-700 text-sm">${topic.description.substring(0, 100)}...</p>
+                    `;
+                    topicCard.addEventListener('click', () => showTopicDetail(topic));
+                    healthEducationTopicList.appendChild(topicCard);
+                });
+            }
+
+            function showTopicDetail(topic) {
+                // Ensure the list is visible before starting fade-out
+                healthEducationTopicList.classList.remove('hidden');
+                healthEducationTopicList.classList.remove('topic-detail-fade-in'); // Remove any lingering fade-in
+                healthEducationTopicList.classList.add('topic-detail-fade-out');
+                
+                const onListFadeOutEnd = () => {
+                    healthEducationTopicList.removeEventListener('animationend', onListFadeOutEnd);
+                    healthEducationTopicList.classList.add('hidden');
+                    healthEducationTopicList.classList.remove('topic-detail-fade-out');
+
+                    // Populate content for detail view
+                    detailTopicTitle.textContent = topic.title;
+                    detailTopicContent.innerHTML = `<p class="mb-4">${topic.description}</p>`;
+
+                    if (topic.videoUrl) {
+                        const videoEmbedHtml = `
+                            <div class="relative" style="padding-bottom: 56.25%;">
+                                <iframe
+                                    class="absolute top-0 left-0 w-full h-full rounded-lg"
+                                    src="${topic.videoUrl}"
+                                    frameborder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowfullscreen
+                                ></iframe>
+                            </div>
+                            <p class="text-gray-500 text-sm mt-2" data-translate-prefix="watchVideo">Watch this video for more information.</p>
+                        `;
+                        detailTopicContent.innerHTML += videoEmbedHtml;
+                    }
+
+                    // Show topic detail with fade-in
+                    healthEducationTopicDetail.classList.remove('hidden');
+                    healthEducationTopicDetail.classList.add('topic-detail-fade-in');
+                    const onDetailFadeInEnd = () => {
+                        healthEducationTopicDetail.removeEventListener('animationend', onDetailFadeInEnd);
+                        healthEducationTopicDetail.classList.remove('topic-detail-fade-in');
+                    };
+                    healthEducationTopicDetail.addEventListener('animationend', onDetailFadeInEnd);
+                };
+
+                healthEducationTopicList.addEventListener('animationend', onListFadeOutEnd);
+            }
+
+            backToTopicsBtn.addEventListener('click', () => {
+                // Ensure the detail view is visible before starting fade-out
+                healthEducationTopicDetail.classList.remove('hidden');
+                healthEducationTopicDetail.classList.remove('topic-detail-fade-in'); // Remove any lingering fade-in
+                healthEducationTopicDetail.classList.add('topic-detail-fade-out');
+                
+                const onDetailFadeOutEnd = () => {
+                    healthEducationTopicDetail.removeEventListener('animationend', onDetailFadeOutEnd);
+                    healthEducationTopicDetail.classList.add('hidden');
+                    healthEducationTopicDetail.classList.remove('topic-detail-fade-out');
+
+                    // Show topic list with fade-in
+                    healthEducationTopicList.classList.remove('hidden');
+                    healthEducationTopicList.classList.add('topic-detail-fade-in');
+                    const onListFadeInEnd = () => {
+                        healthEducationTopicList.removeEventListener('animationend', onListFadeInEnd);
+                        healthEducationTopicList.classList.remove('topic-detail-fade-in');
+                    };
+                    healthEducationTopicList.addEventListener('animationend', onListFadeInEnd);
+                };
+
+                healthEducationTopicDetail.addEventListener('animationend', onDetailFadeOutEnd);
+            });
+
+            // Initial fetch when the page loads if health education is the active section
+            if (document.getElementById('health-education').classList.contains('active')) {
+                fetchHealthEducationTopics();
+            }
+
+            // --- Mental Health Logic ---
+            const mentalHealthResourcesContainer = document.getElementById('mental-health-resources');
+
+            const mentalHealthResourcesData = [
+                {
+                    title: "Coping with Stress: African Perspectives",
+                    description: "Stress is a universal experience, but cultural contexts shape how it's perceived and managed. This resource explores stress management techniques, drawing on traditional African coping mechanisms like community support, storytelling, and spiritual practices, alongside modern psychological approaches.",
+                    link: "https://boydcounselling.com/2006/08/fostering-resilience-lessons-from-an-african-perspective/",
+                    icon: "fas fa-leaf" // Mindfulness icon
+                },
+                {
+                    title: "Promoting Mental Well-being in Youth",
+                    description: "Supporting the mental health of young people in Africa is crucial for future generations. This section provides guidance for parents, educators, and community leaders on identifying signs of distress in youth, fostering resilience, and creating supportive environments for emotional growth.",
+                    link: "https://www.hst.org.za/media/blog/Lists/Posts/Post.aspx?ID=154",
+                    icon: "fas fa-child" // Child icon
+                },
+                {
+                    title: "Community-Based Mental Health Initiatives",
+                    description: "Many African communities are developing innovative, culturally sensitive approaches to mental health care. This resource highlights successful community-led initiatives, peer support networks, and the role of traditional healers in providing accessible and stigma-free mental health support.",
+                    link: "https://www.re-solveglobalhealth.com/post/how-africa-heals-as-community-led-mental-health-care-makes-inroads",
+                    icon: "fas fa-hand-holding-heart" // Community support icon
+                },
+                {
+                    title: "Addressing Stigma Around Mental Illness",
+                    description: "Stigma remains a significant barrier to seeking mental health care in many African societies. This topic provides strategies for challenging misconceptions, promoting open conversations about mental illness, and fostering empathy and understanding within families and communities.",
+                    link: "https://www.afro.who.int/news/barriers-mental-health-care-africa",
+                    icon: "fas fa-eye-slash" // Anti-stigma icon
+                }
+            ];
+
+            function renderMentalHealthResources() {
+                mentalHealthResourcesContainer.innerHTML = ''; // Clear previous resources
+                mentalHealthResourcesData.forEach(resource => {
+                    const resourceCard = document.createElement('div');
+                    resourceCard.classList.add('bg-blue-50', 'p-6', 'rounded-lg', 'shadow-md', 'flex', 'items-start', 'space-x-4');
+                    resourceCard.innerHTML = `
+                        <i class="${resource.icon} text-3xl text-blue-600 mt-1"></i>
+                        <div>
+                            <h4 class="font-bold text-lg text-blue-800 mb-1">${resource.title}</h4>
+                            <p class="text-gray-700 text-sm">${resource.description}</p>
+                            ${resource.link ? `<a href="${resource.link}" target="_blank" class="text-blue-500 hover:underline text-sm mt-2 block" data-translate-prefix="learnMore">Learn More <i class="fas fa-external-link-alt ml-1 text-xs"></i></a>` : ''}
+                        </div>
+                    `;
+                    mentalHealthResourcesContainer.appendChild(resourceCard);
+                });
+            }
+
+            // Initial render when the page loads if mental health is the active section
+            if (document.getElementById('mental-health').classList.contains('active')) {
+                renderMentalHealthResources();
+            }
+
+            // --- AI Diagnostics Logic ---
+            const symptomInput = document.getElementById('symptom-input');
+            const getDiagnosisBtn = document.getElementById('get-diagnosis-btn');
+            const diagnosisLoading = document.getElementById('diagnosis-loading');
+            const diagnosisOutput = document.getElementById('diagnosis-output');
+            const diagnosisText = document.getElementById('diagnosis-text');
+            const diagnosisError = document.getElementById('diagnosis-error');
+            const errorText = document.getElementById('error-text');
+            const consultDoctorBtn = document.getElementById('consult-doctor-btn'); // New button reference
+
+            // Function to simulate AI diagnosis with more detailed first-aid advice
+            async function simulateAIDiagnosis(symptoms) {
+                // Simulate network delay
+                await new Promise(resolve => setTimeout(resolve, 1500)); 
+
+                const lowerSymptoms = symptoms.toLowerCase();
+                let simulatedDiagnosis = "";
+                let baseDiagnosisKey = "generalDiagnosis";
+
+                if (lowerSymptoms.includes("fever") && lowerSymptoms.includes("headache")) {
+                    baseDiagnosisKey = "feverHeadacheDiagnosis";
+                } else if (lowerSymptoms.includes("cough") && lowerSymptoms.includes("sore throat")) {
+                    baseDiagnosisKey = "coughSoreThroatDiagnosis";
+                } else if (lowerSymptoms.includes("stomach pain") || lowerSymptoms.includes("nausea") || lowerSymptoms.includes("vomiting") || lowerSymptoms.includes("diarrhea")) {
+                    baseDiagnosisKey = "stomachPainDiagnosis";
+                } else if (lowerSymptoms.includes("rash") || lowerSymptoms.includes("itchy skin")) {
+                    baseDiagnosisKey = "rashItchySkinDiagnosis";
+                } else if (lowerSymptoms.includes("fatigue") && lowerSymptoms.includes("body aches")) {
+                    baseDiagnosisKey = "fatigueBodyAchesDiagnosis";
+                } else if (lowerSymptoms.includes("sunburn") || (lowerSymptoms.includes("shoulder") || lowerSymptoms.includes("back") || lowerSymptoms.includes("face")) && lowerSymptoms.includes("sun")) {
+                    baseDiagnosisKey = "sunburnDiagnosis";
+                }
+
+                simulatedDiagnosis = `<p>${translations[languageSelect.value][baseDiagnosisKey]}</p>`;
+                simulatedDiagnosis += `
+                    <ul class="list-disc list-inside ml-4 mt-2 text-gray-700">
+                        <li><strong>${translations[languageSelect.value].restAdvice || 'Rest:'}</strong> ${translations[languageSelect.value].restAdviceDetails || 'Get plenty of rest to help your body recover.'}</li>
+                        <li><strong>${translations[languageSelect.value].hydrationAdvice || 'Hydration:'}</strong> ${translations[languageSelect.value].hydrationAdviceDetails || 'Drink clear fluids like water, broth, or rehydration solutions to prevent dehydration, especially with fever.'}</li>
+                        <li><strong>${translations[languageSelect.value].painFeverReliefAdvice || 'Pain/Fever Relief:'}</strong> ${translations[languageSelect.value].painFeverReliefAdviceDetails || 'Consider over-the-counter medications like paracetamol (acetaminophen) or ibuprofen to help reduce fever and alleviate headaches/body aches. Always follow dosage instructions.'}</li>
+                        <li><strong>${translations[languageSelect.value].coolCompressesAdvice || 'Cool Compresses:'}</strong> ${translations[languageSelect.value].coolCompressesAdviceDetails || 'Apply a cool, damp cloth to your forehead or neck to help reduce discomfort from fever.'}</li>
+                        <li><strong>${translations[languageSelect.value].avoidStrenuousActivityAdvice || 'Avoid Strenuous Activity:'}</strong> ${translations[languageSelect.value].avoidStrenuousActivityAdviceDetails || 'Give your body time to heal.'}</li>
+                    </ul>
+                    <p class="mt-4">${translations[languageSelect.value].diagnosisDisclaimer}</p>
+                `;
+                // Add more detailed first-aid advice to translations object if needed for specific symptoms.
+                // For now, using generic advice.
+
+                return simulatedDiagnosis;
+            }
+
+            getDiagnosisBtn.addEventListener('click', async () => {
+                const symptoms = symptomInput.value.trim();
+
+                if (!symptoms) {
+                    diagnosisOutput.classList.add('hidden');
+                    diagnosisError.classList.remove('hidden');
+                    errorText.textContent = translations[languageSelect.value].addRecordValidation; // Re-using for symptom input validation
+                    return;
+                }
+
+                // Hide previous output/error
+                diagnosisOutput.classList.add('hidden');
+                diagnosisError.classList.add('hidden');
+                diagnosisText.textContent = '';
+                errorText.textContent = '';
+
+                // Show loading indicator and disable input/button
+                diagnosisLoading.classList.remove('hidden');
+                symptomInput.disabled = true;
+                getDiagnosisBtn.disabled = true;
+
+                try {
+                    // Call the local simulation function instead of the API
+                    const simulatedResponse = await simulateAIDiagnosis(symptoms);
+                    
+                    diagnosisText.innerHTML = simulatedResponse; // Use innerHTML to allow for bold tags and list items
+                    diagnosisOutput.classList.remove('hidden');
+                } catch (error) {
+                    console.error('Error during AI diagnosis simulation:', error);
+                    diagnosisError.classList.remove('hidden');
+                    errorText.textContent = translations[languageSelect.value].failedDiagnosisError.replace('{errorMessage}', error.message); // Translated error
+                } finally {
+                    // Hide loading indicator and enable input/button
+                    diagnosisLoading.classList.add('hidden');
+                    symptomInput.disabled = false;
+                    getDiagnosisBtn.disabled = false;
+                }
+            });
+
+            // Event listener for the "Consult a Doctor" button
+            consultDoctorBtn.addEventListener('click', () => {
+                switchSection('telemedicine'); // Navigate to the telemedicine section
+            });
+
+            // --- Language Selection Logic ---
+            // languageSelect and languageMessage are now declared globally
+            languageSelect.addEventListener('change', () => {
+                const selectedLanguageCode = languageSelect.value;
+                applyLanguage(selectedLanguageCode);
+                languageMessage.textContent = `${translations[selectedLanguageCode].languageSetTo || 'Language set to'}: ${languageSelect.options[languageSelect.selectedIndex].text}`; // Translated confirmation
+                languageMessage.classList.remove('hidden');
+
+                console.log(`User selected language: ${selectedLanguageCode} (${languageSelect.options[languageSelect.selectedIndex].text})`);
+
+                // Hide message after a few seconds
+                setTimeout(() => {
+                    languageMessage.classList.add('hidden');
+                }, 3000);
+            });
+
+            // Set initial language on load (default to English)
+            applyLanguage(languageSelect.value);
+        });
+    </script>
+</body>
+</html>
